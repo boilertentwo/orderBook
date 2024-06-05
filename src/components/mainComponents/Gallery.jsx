@@ -1,97 +1,167 @@
-import React, { useState, useEffect, useRef,useCallback} from 'react';
+import React, { useState, useEffect, useReducer } from 'react';
 import { useAppContext } from '../../Context/context';
 import axios from 'axios';
+import Cookies from 'js-cookie';
+
+const initialState = {
+  galleryImages: [],
+  isLoading: false,
+  error: null,
+  bufferImg: [],
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'FETCH_INIT':
+      return {
+        ...state,
+        isLoading: true,
+        error: null,
+      };
+    case 'FETCH_SUCCESS':
+      return {
+        ...state,
+        isLoading: false,
+        galleryImages: action.payload,
+      };
+    case 'FETCH_FAILURE':
+      return {
+        ...state,
+        isLoading: false,
+        error: 'Error while fetching images from server',
+      };
+
+    case 'TOGGLE_IMAGE':
+        const newBufferImg = state.bufferImg.some(item => item.image === action.payload.image)
+          ? state.bufferImg.filter(item => item.image !== action.payload.image)
+          : [...state.bufferImg, action.payload];
+        return {
+          ...state,
+          bufferImg: newBufferImg,
+        };
+      
+     
+    case 'INIT_BUFFER_IMG':
+      return {
+        ...state,
+        bufferImg: action.payload,
+      };
+    case 'RESET_BUFFER_IMG':
+      return {
+        ...state,
+        bufferImg: [],
+        galleryImages: []
+      };
+    default:
+      throw new Error();
+  }
+}
 
 export function Gallery() {
-  const { galleryLink, scrollToGallery} = useAppContext();
-  const [galleryImages, setGalleryImages] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isVisible, setIsVisible] = useState(false)
-  const [bufferImg ,setBufferImg] = useState([]);
-
+  const { imageCall,setImageCall,setSingleImage, galleryLink, setGalleryLink, scrollToGallery, setSubmitImages, scrollToQuotation } = useAppContext();
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [isVisible, setIsVisible] = useState(false);
+  const [key, setKey] = useState('');
 
   useEffect(() => {
     const fetchingImages = async () => {
-      setIsLoading(true);
+      dispatch({ type: 'FETCH_INIT' });
       try {
-        const response = await axios.get(`/api${galleryLink}`);
-        setGalleryImages(response.data.images);
+        const response = await axios.get(`${import.meta.env.VITE_IMAGE_URL}${galleryLink}`);
+        dispatch({ type: 'FETCH_SUCCESS', payload: response.data.images });
+        setKey(response.data.key)
       } catch (error) {
-        setError('Error while fetching images from server');
-      } finally {
-        setIsLoading(false);
-        scrollToGallery();
-      }
+        dispatch({ type: 'FETCH_FAILURE' });
+      } 
     };
 
     if (galleryLink) {
       fetchingImages();
     }
-  }, [galleryLink, scrollToGallery]);
+  }, [galleryLink]);
 
+  useEffect(() => {
+    const savedBufferImg = JSON.parse(Cookies.get('bufferImg') || '[]');
+    dispatch({ type: 'INIT_BUFFER_IMG', payload: savedBufferImg });
+  }, []);
+
+  useEffect(() => {
+    Cookies.set('bufferImg', JSON.stringify(state.bufferImg), { expires: 7 });
+  }, [state.bufferImg]);
+
+  const handleSubmit = async () => {
+   
+    
+    try {
+      setSubmitImages(state.bufferImg);
+     
+      dispatch({ type: 'RESET_BUFFER_IMG' });
+      Cookies.remove('bufferImg');
+      dispatch({ type: 'FETCH_SUCCESS', payload: [] });
+      setGalleryLink('')
+      
+    } catch (error) {
+      console.error('Error submitting images:', error);
+    }
+    scrollToQuotation();
+
+  };
 
   return (
     <>
-      {isVisible && (
-        <div  className="fixed bottom-4 right-4 z-50 cursor-pointer">
-          <div className="bg-blue-500 text-white p-2 rounded-full shadow-md hover:bg-blue-700 transition-colors">
-            Up
-          </div>
-        </div>
-      )}
-
-      <div className="">
-        <input
-         
-          onChange={(e) => console.log(e.target.value)}
-          type="text"
-          id="gallery"
-          placeholder="search for models"
-          className="min-w-full p-1 border-2 border-slate-500"
-        />
-      </div>
-      
-      
-
-      {isLoading ? (
+      {state.isLoading ? (
         <div className="self-center size-full content-center">
           <h1 className="text-center">Loading...</h1>
         </div>
-      ) : error ? (
+      ) : state.error ? (
         <div className="self-center size-full content-center">
-          <h1 className="text-center">{error}</h1>
+          <h1 className="text-center">{state.error}</h1>
         </div>
-      ) : galleryImages.length > 0 ? (
-        <div>
-          {galleryImages.map((image, index) => (
-            <div key={index} onClick={()=>{
-            setBufferImg((prev)=>[...prev,`${image}`])
-            console.log(bufferImg)
-            }}>
-               <img key={index} src={`/api${image}`} alt={`Image ${index + 1}`} />
+      ) : state.galleryImages.length > 0 ? (
+        <div className='h-5/7 overflow-y-auto scroll-smooth snap-mandatory snap-y'>
+          {state.galleryImages.map((image, index) => (
+            <div
+              className='snap-start snap-always'
+              key={index}
+              onClick={() =>{
+                if(imageCall){setSingleImage(`${image}`) 
+                              setGalleryLink('')
+                              setImageCall(false)
+                              scrollToQuotation()
+                            }
+                else{
+                  dispatch({ type: 'TOGGLE_IMAGE', payload: { image, key } })
+                }
+                
+              }
+            }
+              
+            >
+              <img
+                src={`${import.meta.env.VITE_IMAGE_URL}${image}`}
+                alt={`Image ${index + 1}`}
+                style={{
+                  border: state.bufferImg.some(item => item.image === image && item.key === key)
+                    ? '4px solid green'
+                    : 'none',
+                }}
+              />
             </div>
-           
           ))}
         </div>
       ) : (
         <div className="self-center size-full content-center">
-          <h1 className="text-center">Choose a route</h1>
+          <h1 className="text-center">Choose a model</h1>
         </div>
       )}
-
-     
-     
-      {/* {
-        bufferImg? bufferImg.map((eachImg,index)=>{
-          <div className=''>
-
-          </div>
-        }
-
-        ) : null
-      } */}
-
+      {state.bufferImg.length > 0 && (
+        <button
+          className="fixed bottom-16 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-blue-400 text-white rounded shadow hover:bg-blue-700"
+          onClick={handleSubmit}
+        >
+          Submit ({state.bufferImg.length})
+        </button>
+      )}
     </>
   );
 }
