@@ -1,5 +1,5 @@
 import {useContext,createContext,useEffect,useState} from 'react'
-import { account } from '../appwrite.config'
+import { account, userDatabase  } from '../appwrite.config'
 import { useNavigate } from 'react-router-dom'
 import { Loader } from '../components/subComponents/Loader'
 import { ID } from 'appwrite'
@@ -46,6 +46,19 @@ export const AuthProvider = ({children})=>{
         setLoading(false)
     }
 
+    const fetchOrders = async () => {
+        setLoading(true)
+        try {
+            const response = await userDatabase.listDocuments(
+                
+            )
+        } catch (error) {
+            
+        }
+
+    }
+
+
     const logoutUser = () => {
         account.deleteSession('current')
         setUser(null)
@@ -78,11 +91,11 @@ export const AuthProvider = ({children})=>{
 
     return (
         <AuthContext.Provider value={contextData}>
-                {loading?<Loader></Loader>:children}
+                {loading? <Loader></Loader> :children}
         </AuthContext.Provider>
     )
-
 }
-export const useAuth = ()=>{
+
+export const useAuth = () => {
     return useContext(AuthContext)
 }

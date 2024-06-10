@@ -23,6 +23,7 @@ export function MainDoor({image,index,type}){
     const [formStatus, setFormStatus] = useState(null); 
     const { setSingleImage,scrollToGallery,setImageCall,singleImage,setEmpForm, setSubmitStatus, setGalleryLink } = useAppContext();
     const {userId} = useAuth()
+    const [dbImage, setDbImage] = useState('')
 
     const client = new Client()
     .setEndpoint(import.meta.env.VITE_APPWRITE_URL)
@@ -36,7 +37,15 @@ export function MainDoor({image,index,type}){
         const breadthInMM = convertUnit(parseFloat(data.breadth), data.breadthUnit, 'mm');
         const borderInMM = convertUnit(parseFloat(data.border), data.borderUnit, 'mm');
         const finishinMM = parseInt(data.finishing)
-    
+        if(image==='')
+          {
+            setDbImage(singleImage)
+          }
+        else{
+          setDbImage(image)
+        }
+
+
         try {
           await databaseMD.createDocument(
             import.meta.env.VITE_APPWRITE_DATABASEID, 
@@ -46,7 +55,7 @@ export function MainDoor({image,index,type}){
               length: lengthInMM,
               breadth: breadthInMM,
               border: borderInMM,
-              model: image,
+              model: dbImage,
               'hand-finish': data.handfinish,
               finishing: finishinMM,
               userID : userId,
